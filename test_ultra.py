@@ -1,5 +1,5 @@
 from ultralytics import YOLO
 
-model = YOLO("yolov8n.pt")
-
-results = model.predict(show=True, source="test_video6.mp4")
+model = YOLO("yolov8m.pt")
+link = "D:/BaseProject/test_video6.mp4"
+results = model.predict(show=True, source=link)

@@ -2,8 +2,8 @@ import time
 import cv2
 import numpy as np
 from yolodetect import YoloDetect
-
-cap = cv2.VideoCapture("test_video6.mp4")
+link = "D:/BaseProject/test_video6.mp4"
+cap = cv2.VideoCapture(link)
 
 if not cap.isOpened():
     print("Không thể mở camera.")
