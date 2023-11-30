@@ -2,6 +2,8 @@ import time
 import cv2
 import numpy as np
 from yolodetect import YoloDetect
+from ultralytics import YOLO
+import supervision as sv
 link = "D:/BaseProject/test_video6.mp4"
 cap = cv2.VideoCapture(link)
 
@@ -16,8 +18,13 @@ cap.set(4, height)  # ID 4 là chiều cao của video
 points = []
 
 
-model = YoloDetect()
-
+model = YOLO("yolov8s.pt")
+model_detect = YoloDetect()
+box_annotator = sv.BoxAnnotator(
+        thickness=1,
+        text_thickness=1,
+        text_scale=1
+    )
 
 def handle_left_click(event, x, y, flags, points):
     if event == cv2.EVENT_LBUTTONDOWN:
@@ -37,17 +44,20 @@ detect = False
 while True:
 
     ret,frame = cap.read()
-
+    result = model.predict(frame)
+    frame1 = result[0].plot()
     # frame = cv2.flip(frame, 1)
+
     if not ret:
         print("Không thể đọc frame từ camera.")
         break
-    resized_frame = cv2.resize(frame, (width, height))
-    # Ve ploygon
+    resized_frame = cv2.resize(frame1, (width, height))
+    # Ve poloygon
     resized_frame = draw_polygon(resized_frame, points)
 
     if detect:
-        resized_frame = model.detect(frame= resized_frame, points= points)
+        resized_frame = model_detect.detect(frame= resized_frame, points= points)
+
 
     key = cv2.waitKey(1)
     if key == ord('q'):
@@ -57,9 +67,9 @@ while True:
         detect = True
 
     # Hien anh ra man hinh
-    cv2.imshow("Intrusion Warning", resized_frame)
+    cv2.imshow("YOLOv8", resized_frame)
 
-    cv2.setMouseCallback('Intrusion Warning', handle_left_click, points)
+    cv2.setMouseCallback('YOLOv8', handle_left_click, points)
 cap.release()
 # video.stop()
 cv2.destroyAllWindows()

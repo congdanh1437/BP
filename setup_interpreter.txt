@@ -3,3 +3,5 @@ numpy
 imutils
 python-telegram-bot
 shapely
+ultralytics
+supervision

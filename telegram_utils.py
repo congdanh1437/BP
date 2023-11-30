@@ -1,5 +1,3 @@
-import telegram
-import requests
 import telepot
 def send_telegram(photo_path="alert.png"):
     try:
