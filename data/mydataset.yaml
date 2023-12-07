@@ -1,0 +1,8 @@
+path: D:/BaseProject/BP/data
+train: images
+val: images
+test:
+
+names:
+  0: person
+  1: fire
