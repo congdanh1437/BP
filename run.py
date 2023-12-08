@@ -44,7 +44,7 @@ detect = False
 while True:
 
     ret,frame = cap.read()
-    result = model.predict(frame, device ='0')
+    result = model(frame, device ='0')
     frame1 = result[0].plot()
     # frame = cv2.flip(frame, 1)
 

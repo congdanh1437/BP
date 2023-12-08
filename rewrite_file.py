@@ -1,7 +1,7 @@
 import re
 import glob
 import os
-source="data/labels/"
+source="data/l1/"
 for filename in glob.glob(os.path.join(source, '*.txt')):
     with open(filename, "r") as f:
         contents = f.read()
