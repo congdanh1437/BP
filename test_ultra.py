@@ -70,9 +70,11 @@ class ObjectDetection:
 
     def __call__(self):
         cap = cv2.VideoCapture(self.capture_index)
+        width = 1080
+        height = 720
+
         assert cap.isOpened()
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+
         frame_count = 0
         while True:
             self.start_time = time()
