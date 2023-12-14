@@ -1,5 +1,5 @@
 import telepot
-def send_telegram(photo_path="alert.png"):
+def send_telegram(photo_path="alert1.png"):
     try:
         my_token = "6843881066:AAGOQOPHXbfhPGYnXKc7eZ3kBVq9YD4uebY"
         bot = telepot.Bot(token=my_token)

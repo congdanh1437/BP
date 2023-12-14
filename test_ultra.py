@@ -7,6 +7,11 @@ from ultralytics.utils.plotting import Annotator, colors
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.mime.image import MIMEImage
+from yolodetect import YoloDetect
+from telegram_utils import send_telegram
+import datetime
+import threading
 
 password = "wnmd msav gljs qofz"
 from_email = "congdanhzer0x2002@gmail.com"  # must match the email used to generate the password
@@ -16,15 +21,33 @@ server = smtplib.SMTP('smtp.gmail.com: 587')
 server.starttls()
 server.login(from_email, password)
 
-def send_email(to_email, from_email, object_detected=1):
+# def send_email(to_email, from_email, object_detected=1):
+#     message = MIMEMultipart()
+#     message['From'] = from_email
+#     message['To'] = to_email
+#     message['Subject'] = "Security Alert"
+#     # Add in the message body
+#     message_body = f'ALERT - {object_detected} objects has been detected!!'
+#
+#     message.attach(MIMEText(message_body, 'plain'))
+#     server.sendmail(from_email, to_email, message.as_string())
+
+def send_email(to_email, from_email, object_detected=1, image_path=None):
+    # Set up the MIME
     message = MIMEMultipart()
     message['From'] = from_email
     message['To'] = to_email
     message['Subject'] = "Security Alert"
-    # Add in the message body
-    message_body = f'ALERT - {object_detected} objects has been detected!!'
 
+    # Add in the message body
+    message_body = f'ALERT - {object_detected} objects have been detected!!'
     message.attach(MIMEText(message_body, 'plain'))
+
+    # Attach image if provided
+    if image_path:
+        with open(image_path, 'rb') as image_file:
+            image_attachment = MIMEImage(image_file.read(), name='alert1.png')
+            message.attach(image_attachment)
     server.sendmail(from_email, to_email, message.as_string())
 class ObjectDetection:
     def __init__(self, capture_index):
@@ -33,7 +56,7 @@ class ObjectDetection:
         self.email_sent = False
 
         # model information
-        self.model = YOLO("yolov8n.pt")
+        self.model = YOLO("runs/detect/train8/weights/best.pt")
 
         # visual information
         self.annotator = None
@@ -42,11 +65,22 @@ class ObjectDetection:
 
         # device information
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        self.last_alert = None
+        self.alert_telegram_each = 15  # seconds
 
     def predict(self, im0):
-        results = self.model(im0)
+        results = self.model(im0, device='0')
         return results
 
+    def alert(self, img):
+        # New thread to send telegram after 15 seconds
+        if (self.last_alert is None) or (
+                (datetime.datetime.utcnow() - self.last_alert).total_seconds() > self.alert_telegram_each):
+            self.last_alert = datetime.datetime.utcnow()
+            cv2.imwrite("alert1.png", cv2.resize(img, dsize=None, fx=0.5, fy=0.5))
+            thread = threading.Thread(target=send_telegram)
+            thread.start()
+        return img
     def display_fps(self, im0):
         self.end_time = time()
         fps = 1 / np.round(self.end_time - self.start_time, 2)
@@ -85,13 +119,15 @@ class ObjectDetection:
 
             if len(class_ids) > 0:  # Only send email If not sent before
                 if not self.email_sent:
-                    send_email(to_email, from_email, len(class_ids))
+                    send_email(to_email, from_email, len(class_ids), image_path="alert1.png")
                     self.email_sent = True
+                    self.alert(img=im0)
             else:
                 self.email_sent = False
 
             self.display_fps(im0)
-            cv2.imshow('YOLOv8 Detection', im0)
+            im1 = cv2.resize(im0, (width, height))
+            cv2.imshow('YOLOv8 Detection', im1)
             frame_count += 1
             if cv2.waitKey(5) & 0xFF == ord("q"):
                 break
