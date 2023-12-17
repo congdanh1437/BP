@@ -5,7 +5,7 @@ import numpy as np
 from telegram_utils import send_telegram
 import datetime
 import threading
-
+import time
 
 def isInside(points, centroid):
     polygon = Polygon(points)
@@ -33,6 +33,9 @@ class YoloDetect():
         self.get_output_layers()
         self.last_alert = None
         self.alert_telegram_each = 15  # seconds
+        self.alert_queue = []
+        self.alert_thread = threading.Thread(target=self.handle_alerts)
+        self.alert_thread.start()
 
     def read_class_file(self):
         with open(self.classnames_file, 'r') as f:
@@ -53,20 +56,23 @@ class YoloDetect():
         cv2.circle(img, centroid, 5, (color), -1)
 
         if isInside(points, centroid):
-            img = self.alert(img)
+            img = self.alert(img,points)
 
         return isInside(points, centroid)
 
-    def alert(self, img):
-        cv2.putText(img, "ALARM!!!!", (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-        # New thread to send telegram after 15 seconds
-        if (self.last_alert is None) or (
-                (datetime.datetime.utcnow() - self.last_alert).total_seconds() > self.alert_telegram_each):
-            self.last_alert = datetime.datetime.utcnow()
-            cv2.imwrite("alert.png", cv2.resize(img, dsize=None, fx=0.5, fy=0.5))
-            thread = threading.Thread(target=send_telegram(photo_path="alert.png"))
-            thread.start()
-        return img
+    def handle_alerts(self):
+        while True:
+            if self.alert_queue:
+                alert_data = self.alert_queue.pop(0)
+                if alert_data:
+                    img, points = alert_data
+                    cv2.putText(img, "ALARM!!!!", (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+                    cv2.imwrite("alert.png", cv2.resize(img, dsize=None, fx=0.5, fy=0.5))
+                    send_telegram(photo_path="alert.png")
+            time.sleep(0.1)  # Adjust sleep time as needed to avoid busy waiting
+
+    def alert(self, img, points):
+        self.alert_queue.append((img.copy(), points))
 
     def detect(self, frame, points):
         blob = cv2.dnn.blobFromImage(frame, self.scale, (416, 416), (0, 0, 0), True, crop=False)
