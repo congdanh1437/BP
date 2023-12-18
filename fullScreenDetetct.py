@@ -5,10 +5,6 @@ from time import time
 from ultralytics import YOLO
 from ultralytics.utils.plotting import Annotator, colors
 import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-from email.mime.image import MIMEImage
-from yolodetect import YoloDetect
 from telegram_utils import send_telegram
 import datetime
 import threading
@@ -25,10 +21,11 @@ server.login(from_email, password)
 
 
 class ObjectDetection(threading.Thread):
-    def __init__(self, capture_index):
+    def __init__(self, capture_index, alert_queue):
         threading.Thread.__init__(self)
         self.capture_index = capture_index
         self.model = YOLO("runs/detect/train8/weights/best.pt")
+        self.alert_queue = alert_queue
         self.annotator = None
         self.start_time = 0
         self.end_time = 0
@@ -46,13 +43,8 @@ class ObjectDetection(threading.Thread):
         if (self.last_alert is None) or (
                 (datetime.datetime.utcnow() - self.last_alert).total_seconds() > self.alert_each):
             self.last_alert = datetime.datetime.utcnow()
-            cv2.imwrite("alert1.png", cv2.resize(img, dsize=None, fx=0.5, fy=0.5))
-            thread = threading.Thread(target=send_telegram(photo_path="alert1.png"))
-            thread1 = threading.Thread(
-                target=send_email(to_email, from_email, object_detected=object_detected, image_path="alert1.png"))
-            thread.start()
-            thread1.start()
-        return img
+            alert_image = cv2.resize(img, dsize=None, fx=0.5, fy=0.5)
+            self.alert_queue.put((alert_image, object_detected))
 
     def display_fps(self, im0):
         self.end_time = time()
@@ -92,19 +84,42 @@ class ObjectDetection(threading.Thread):
 
             if len(class_ids) > 0:
                 self.alert(img=im0, object_detected=len(class_ids))
+
             self.display_fps(im0)
             im1 = cv2.resize(im0, (width, height))
             cv2.imshow('YOLOv8 Detection', im1)
+
             frame_count += 1
+
             if cv2.waitKey(5) & 0xFF == ord("q"):
                 break
+
         cap.release()
         cv2.destroyAllWindows()
         server.quit()
 
 
-thread_vid = ObjectDetection(capture_index="D:/BaseProject/test_video6.mp4")
-thread_vid.start()
+def alerting_process(alert_queue):
+    while True:
+        alert_data = alert_queue.get()
+        if alert_data:
+            alert_image, object_detected = alert_data
+            cv2.imwrite("alert1.png", alert_image)
+            send_telegram(photo_path="alert1.png")
+            send_email(to_email, from_email, object_detected=object_detected, image_path="alert1.png")
 
-# detector = ObjectDetection(capture_index="D:/BaseProject/test_video6.mp4")
-# detector()
+
+if __name__ == "__main__":
+    alert_queue = multiprocessing.Queue()
+
+    # Start the alerting process
+    alert_process = multiprocessing.Process(target=alerting_process, args=(alert_queue,))
+    alert_process.start()
+
+    # Start the image processing thread
+    thread_vid = ObjectDetection(capture_index="D:/BaseProject/test_video6.mp4", alert_queue=alert_queue)
+    thread_vid.start()
+
+    # Wait for threads/processes to finish
+    thread_vid.join()
+    alert_process.join()
