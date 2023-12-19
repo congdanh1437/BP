@@ -6,7 +6,8 @@ from telegram_utils import send_telegram
 import datetime
 import threading
 import time
-
+from PIL import Image
+from datetime import datetime
 def isInside(points, centroid):
     polygon = Polygon(points)
     centroid = Point(centroid)
@@ -64,12 +65,20 @@ class YoloDetect():
         while True:
             if self.alert_queue:
                 alert_data = self.alert_queue.pop(0)
-                if alert_data:
-                    img, points = alert_data
-                    cv2.putText(img, "ALARM!!!!", (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-                    cv2.imwrite("alert.png", cv2.resize(img, dsize=None, fx=0.5, fy=0.5))
-                    send_telegram(photo_path="alert.png")
-            time.sleep(0.1)  # Adjust sleep time as needed to avoid busy waiting
+                if (self.last_alert is None) or (
+                        (datetime.utcnow() - self.last_alert).total_seconds() > self.alert_telegram_each):
+                    self.last_alert = datetime.utcnow()
+                    if alert_data:
+                        img, points = alert_data
+                        cv2.putText(img, "ALARM!!!!", (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+                        cv2.imwrite("alert.png", cv2.resize(img, dsize=None, fx=0.5, fy=0.5))
+                        send_telegram(photo_path="alert.png")
+                        img = Image.open('D:/BaseProject/BP/alert.png')
+                        current_date = datetime.now()
+                        timestamp = current_date.strftime("%d%b%Y_%Hh%Mm%Ss")
+                        filename = f"alert_{timestamp}.png"
+                        img.save('detected/' + filename)
+            time.sleep(0.1)
 
     def alert(self, img, points):
         self.alert_queue.append((img.copy(), points))
