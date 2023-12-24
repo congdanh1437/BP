@@ -5,3 +5,9 @@ python-telegram-bot
 shapely
 ultralytics
 supervision
+PyQt5
+bcrypt
+secure-smtplib
+pyodbc
+cryptography
+torch
