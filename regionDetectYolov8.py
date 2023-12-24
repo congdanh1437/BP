@@ -13,7 +13,7 @@ import multiprocessing
 from PIL import Image
 from datetime import datetime
 import json
-
+import os
 password = "wnmd msav gljs qofz"
 from_email = "congdanhzer0x2002@gmail.com"
 to_email = "ddanh14372@gmail.com"
@@ -26,7 +26,7 @@ points = []  # List to store polygon points
 
 
 class ObjectDetection(threading.Thread):
-    def __init__(self, capture_index, alert_queue):
+    def __init__(self, capture_index, alert_queue, output_video_path):
         threading.Thread.__init__(self)
         self.capture_index = capture_index
         self.model = YOLO("runs/detect/train8/weights/best.pt")
@@ -39,7 +39,7 @@ class ObjectDetection(threading.Thread):
         self.alert_each = 15  # seconds
         self.detected_centroids = []
         self.detect = None
-
+        self.output_video_path = output_video_path
     def predict(self, im0):
         results = self.model(im0, device='0')
         return results
@@ -123,7 +123,8 @@ class ObjectDetection(threading.Thread):
         assert cap.isOpened()
 
         frame_count = 0
-
+        fourcc = cv2.VideoWriter_fourcc(*"XVID")
+        self.video_writer = cv2.VideoWriter(self.output_video_path, fourcc, 25, (width, height))
         while True:
             self.start_time = time()
             ret, im0 = cap.read()
@@ -148,10 +149,10 @@ class ObjectDetection(threading.Thread):
             self.draw_centroids(im0, self.detected_centroids)
 
             cv2.imshow('YOLOv8 Detection', im1)
-
+            self.video_writer.write(im1)
             frame_count += 1
 
-            key = cv2.waitKey(5)
+            key = cv2.waitKey(1)
             if key == ord("q"):
                 break
             elif key == ord("d"):
@@ -162,6 +163,9 @@ class ObjectDetection(threading.Thread):
             elif key == ord("l"):
                 self.load_polygon_from_json()
                 self.detect = True
+            elif key == ord("x"):
+                points.clear()
+                self.detect = False
 
             cv2.namedWindow('YOLOv8 Detection')
             cv2.setMouseCallback('YOLOv8 Detection', self.mouse_callback)
@@ -186,6 +190,11 @@ def alerting_process(alert_queue):
 
 
 if __name__ == "__main__":
+    current_date = datetime.now()
+    timestamp = current_date.strftime("%d%b%Y_%Hh%Mm%Ss")
+    output_folder = "recorded_region_detect"
+    os.makedirs(output_folder, exist_ok=True)
+    output_video_path = os.path.join(output_folder, f"regionDetect_video_{timestamp}.avi")
     alert_queue = multiprocessing.Queue()
 
     # Start the alerting process
@@ -193,7 +202,9 @@ if __name__ == "__main__":
     alert_process.start()
 
     # Start the image processing thread
-    thread_vid = ObjectDetection(capture_index="D:/BaseProject/test_video6.mp4", alert_queue=alert_queue)
+    thread_vid = ObjectDetection(capture_index="D:/BaseProject/test_video6.mp4",
+                                 alert_queue=alert_queue,
+                                 output_video_path=output_video_path)
     thread_vid.start()
 
     # Wait for threads/processes to finish

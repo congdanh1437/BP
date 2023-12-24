@@ -12,17 +12,17 @@ from sendEmail import send_email
 import multiprocessing
 from PIL import Image
 from datetime import datetime
+import os
 password = "wnmd msav gljs qofz"
-from_email = "congdanhzer0x2002@gmail.com"  # must match the email used to generate the password
-to_email = "ddanh14372@gmail.com"  # receiver email
+from_email = "congdanhzer0x2002@gmail.com"
+to_email = "ddanh14372@gmail.com"
 
 server = smtplib.SMTP('smtp.gmail.com: 587')
 server.starttls()
 server.login(from_email, password)
 
-
 class ObjectDetection(threading.Thread):
-    def __init__(self, capture_index, alert_queue):
+    def __init__(self, capture_index, alert_queue, output_video_path):
         threading.Thread.__init__(self)
         self.capture_index = capture_index
         self.model = YOLO("runs/detect/train8/weights/best.pt")
@@ -30,8 +30,7 @@ class ObjectDetection(threading.Thread):
         self.annotator = None
         self.start_time = 0
         self.end_time = 0
-
-        # device information
+        self.output_video_path = output_video_path
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.last_alert = None
         self.alert_each = 15  # seconds
@@ -76,6 +75,8 @@ class ObjectDetection(threading.Thread):
         assert cap.isOpened()
 
         frame_count = 0
+        fourcc = cv2.VideoWriter_fourcc(*"XVID")
+        self.video_writer = cv2.VideoWriter(self.output_video_path, fourcc, 25, (width, height))
         while True:
             self.start_time = time()
             ret, im0 = cap.read()
@@ -89,12 +90,12 @@ class ObjectDetection(threading.Thread):
             self.display_fps(im0)
             im1 = cv2.resize(im0, (width, height))
             cv2.imshow('YOLOv8 Detection', im1)
-
+            self.video_writer.write(im1)
             frame_count += 1
 
             if cv2.waitKey(5) & 0xFF == ord("q"):
                 break
-
+        self.video_writer.release()
         cap.release()
         cv2.destroyAllWindows()
         server.quit()
@@ -116,6 +117,11 @@ def alerting_process(alert_queue):
 
 
 if __name__ == "__main__":
+    current_date = datetime.now()
+    timestamp = current_date.strftime("%d%b%Y_%Hh%Mm%Ss")
+    output_folder = "recorded_fullScreen_video"
+    os.makedirs(output_folder, exist_ok=True)
+    output_video_path = os.path.join(output_folder, f"fullScreen_video_{timestamp}.avi")
     alert_queue = multiprocessing.Queue()
 
     # Start the alerting process
@@ -123,7 +129,9 @@ if __name__ == "__main__":
     alert_process.start()
 
     # Start the image processing thread
-    thread_vid = ObjectDetection(capture_index="D:/BaseProject/test_video6.mp4", alert_queue=alert_queue)
+    thread_vid = ObjectDetection(capture_index="D:/BaseProject/test_video6.mp4",
+                                 alert_queue=alert_queue,
+                                 output_video_path=output_video_path)
     thread_vid.start()
 
     # Wait for threads/processes to finish
