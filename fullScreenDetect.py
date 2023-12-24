@@ -15,14 +15,14 @@ from datetime import datetime
 import os
 password = "wnmd msav gljs qofz"
 from_email = "congdanhzer0x2002@gmail.com"
-to_email = "ddanh14372@gmail.com"
+# to_email = "ddanh14372@gmail.com"
 
 server = smtplib.SMTP('smtp.gmail.com: 587')
 server.starttls()
 server.login(from_email, password)
 
 class ObjectDetection(threading.Thread):
-    def __init__(self, capture_index, alert_queue, output_video_path):
+    def __init__(self, capture_index, alert_queue, output_video_path, to_email):
         threading.Thread.__init__(self)
         self.capture_index = capture_index
         self.model = YOLO("runs/detect/train8/weights/best.pt")
@@ -34,6 +34,7 @@ class ObjectDetection(threading.Thread):
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.last_alert = None
         self.alert_each = 15  # seconds
+        self.to_email = to_email
 
     def predict(self, im0):
         results = self.model(im0, device='0')
@@ -101,7 +102,7 @@ class ObjectDetection(threading.Thread):
         server.quit()
 
 
-def alerting_process(alert_queue):
+def alerting_process(alert_queue,to_email):
     while True:
         alert_data = alert_queue.get()
         if alert_data:
@@ -116,24 +117,24 @@ def alerting_process(alert_queue):
             img.save('detected/' + filename)
 
 
-if __name__ == "__main__":
-    current_date = datetime.now()
-    timestamp = current_date.strftime("%d%b%Y_%Hh%Mm%Ss")
-    output_folder = "recorded_fullScreen_video"
-    os.makedirs(output_folder, exist_ok=True)
-    output_video_path = os.path.join(output_folder, f"fullScreen_video_{timestamp}.avi")
-    alert_queue = multiprocessing.Queue()
-
-    # Start the alerting process
-    alert_process = multiprocessing.Process(target=alerting_process, args=(alert_queue,))
-    alert_process.start()
-
-    # Start the image processing thread
-    thread_vid = ObjectDetection(capture_index="D:/BaseProject/test_video6.mp4",
-                                 alert_queue=alert_queue,
-                                 output_video_path=output_video_path)
-    thread_vid.start()
-
-    # Wait for threads/processes to finish
-    thread_vid.join()
-    alert_process.join()
+# if __name__ == "__main__":
+#     current_date = datetime.now()
+#     timestamp = current_date.strftime("%d%b%Y_%Hh%Mm%Ss")
+#     output_folder = "recorded_fullScreen_video"
+#     os.makedirs(output_folder, exist_ok=True)
+#     output_video_path = os.path.join(output_folder, f"fullScreen_video_{timestamp}.avi")
+#     alert_queue = multiprocessing.Queue()
+#
+#     # Start the alerting process
+#     alert_process = multiprocessing.Process(target=alerting_process, args=(alert_queue,))
+#     alert_process.start()
+#
+#     # Start the image processing thread
+#     thread_vid = ObjectDetection(capture_index="D:/BaseProject/test_video6.mp4",
+#                                  alert_queue=alert_queue,
+#                                  output_video_path=output_video_path)
+#     thread_vid.start()
+#
+#     # Wait for threads/processes to finish
+#     thread_vid.join()
+#     alert_process.join()

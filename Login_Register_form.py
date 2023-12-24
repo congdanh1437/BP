@@ -1,10 +1,17 @@
+import multiprocessing
+import os
 import sys
 import re
+from datetime import datetime
+
 import pyodbc
 import smtplib
 from email.mime.text import MIMEText
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QLineEdit, QPushButton, QHBoxLayout, QMessageBox, QDialog, QRadioButton
 import subprocess
+from fullScreenDetect import ObjectDetection, alerting_process
+from regionDetectYolov8 import RegionObjectDetection, region_alerting_process
+
 
 class RegistrationForm(QDialog):
     def __init__(self, username, password, verification_code):
@@ -64,14 +71,14 @@ class RegistrationForm(QDialog):
             return False
 
 class OptionsForm(QDialog):
-    def __init__(self):
+    def __init__(self, to_email):
         super().__init__()
 
         self.setWindowTitle("Choose Detection Option")
         self.setGeometry(300, 300, 300, 150)
 
         self.init_ui()
-
+        self.to_email = to_email
     def init_ui(self):
         layout = QVBoxLayout()
 
@@ -90,19 +97,61 @@ class OptionsForm(QDialog):
     def confirm_option(self):
         self.close()
         if self.full_screen_radio.isChecked():
-            self.start_full_screen_detection()
+            self.start_full_screen_detection(self.to_email)
         elif self.region_detect_radio.isChecked():
-            self.start_region_detection()
+            self.start_region_detection(self.to_email)
 
-    def start_full_screen_detection(self):
+    def start_full_screen_detection(self, to_email):
         try:
-            subprocess.run(["D:/BaseProject/BP/venv/Scripts/python.exe", "fullScreenDetect.py", to_email])
+            current_date = datetime.now()
+            timestamp = current_date.strftime("%d%b%Y_%Hh%Mm%Ss")
+            output_folder = "recorded_region_detect"
+            os.makedirs(output_folder, exist_ok=True)
+            output_video_path = os.path.join(output_folder, f"regionDetect_video_{timestamp}.avi")
+            alert_queue = multiprocessing.Queue()
+
+            # Start the alerting process
+            alert_process = multiprocessing.Process(target=alerting_process, args=(alert_queue,to_email))
+            alert_process.daemon = True
+            alert_process.start()
+
+            # Start the image processing thread
+            thread_vid = ObjectDetection(capture_index="D:/BaseProject/test_video6.mp4",
+                                         alert_queue=alert_queue,
+                                         output_video_path=output_video_path, to_email=to_email)
+            thread_vid.daemon = True
+            thread_vid.start()
+
+            # Wait for threads/processes to finish
+            thread_vid.join()
+            alert_process.join()
         except Exception as e:
             print(f"Error starting full_screen_detection_script.py: {e}")
 
-    def start_region_detection(self):
+    def start_region_detection(self, to_email):
         try:
-            subprocess.run(["D:/BaseProject/BP/venv/Scripts/python.exe", "regionDetectYolov8.py", to_email])
+            current_date = datetime.now()
+            timestamp = current_date.strftime("%d%b%Y_%Hh%Mm%Ss")
+            output_folder = "recorded_region_detect"
+            os.makedirs(output_folder, exist_ok=True)
+            output_video_path = os.path.join(output_folder, f"regionDetect_video_{timestamp}.avi")
+            alert_queue = multiprocessing.Queue()
+
+            # Start the alerting process
+            alert_process = multiprocessing.Process(target=region_alerting_process, args=(alert_queue,to_email))
+            alert_process.daemon = True
+            alert_process.start()
+
+            # Start the image processing thread
+            thread_vid = RegionObjectDetection(capture_index="D:/BaseProject/test_video6.mp4",
+                                         alert_queue=alert_queue,
+                                         output_video_path=output_video_path,to_email=to_email)
+            thread_vid.daemon = True
+            thread_vid.start()
+
+            # Wait for threads/processes to finish
+            thread_vid.join()
+            alert_process.join()
         except Exception as e:
             print(f"Error starting regionDetectYolov8.py: {e}")
 
@@ -158,12 +207,12 @@ class LoginRegisterForm(QWidget):
             to_email = username  # Set from_email to the logged-in username
             QMessageBox.information(self, "Login Successful", "User logged in successfully.")
             self.close()
-            self.show_options_form()
+            self.show_options_form(to_email)
         else:
             QMessageBox.warning(self, "Login Failed", "Invalid username or password.")
 
-    def show_options_form(self):
-        options_form = OptionsForm()
+    def show_options_form(self, to_email):
+        options_form = OptionsForm(to_email)
         options_form.exec_()
 
     def username_exists(self, username):
