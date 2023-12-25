@@ -94,7 +94,7 @@ class ObjectDetection(threading.Thread):
             self.video_writer.write(im1)
             frame_count += 1
 
-            if cv2.waitKey(5) & 0xFF == ord("q"):
+            if cv2.waitKey(1) & 0xFF == ord("q"):
                 break
         self.video_writer.release()
         cap.release()

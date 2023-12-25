@@ -3,11 +3,11 @@ import os
 import sys
 import re
 from datetime import datetime
-
 import pyodbc
 import smtplib
 from email.mime.text import MIMEText
-from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QLineEdit, QPushButton, QHBoxLayout, QMessageBox, QDialog, QRadioButton
+from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QLineEdit, QPushButton, QHBoxLayout, \
+    QMessageBox, QDialog, QRadioButton
 import subprocess
 from fullScreenDetect import ObjectDetection, alerting_process
 from regionDetectYolov8 import RegionObjectDetection, region_alerting_process
@@ -70,6 +70,7 @@ class RegistrationForm(QDialog):
             print(f"Error: {e}")
             return False
 
+
 class OptionsForm(QDialog):
     def __init__(self, to_email):
         super().__init__()
@@ -79,6 +80,7 @@ class OptionsForm(QDialog):
 
         self.init_ui()
         self.to_email = to_email
+
     def init_ui(self):
         layout = QVBoxLayout()
 
@@ -105,13 +107,13 @@ class OptionsForm(QDialog):
         try:
             current_date = datetime.now()
             timestamp = current_date.strftime("%d%b%Y_%Hh%Mm%Ss")
-            output_folder = "recorded_region_detect"
+            output_folder = "recorded_fullScreen_video"
             os.makedirs(output_folder, exist_ok=True)
-            output_video_path = os.path.join(output_folder, f"regionDetect_video_{timestamp}.avi")
+            output_video_path = os.path.join(output_folder, f"fullScreenDetect_video_{timestamp}.avi")
             alert_queue = multiprocessing.Queue()
 
             # Start the alerting process
-            alert_process = multiprocessing.Process(target=alerting_process, args=(alert_queue,to_email))
+            alert_process = multiprocessing.Process(target=alerting_process, args=(alert_queue, to_email))
             alert_process.daemon = True
             alert_process.start()
 
@@ -138,14 +140,14 @@ class OptionsForm(QDialog):
             alert_queue = multiprocessing.Queue()
 
             # Start the alerting process
-            alert_process = multiprocessing.Process(target=region_alerting_process, args=(alert_queue,to_email))
+            alert_process = multiprocessing.Process(target=region_alerting_process, args=(alert_queue, to_email))
             alert_process.daemon = True
             alert_process.start()
 
             # Start the image processing thread
             thread_vid = RegionObjectDetection(capture_index="D:/BaseProject/test_video6.mp4",
-                                         alert_queue=alert_queue,
-                                         output_video_path=output_video_path,to_email=to_email)
+                                               alert_queue=alert_queue,
+                                               output_video_path=output_video_path, to_email=to_email)
             thread_vid.daemon = True
             thread_vid.start()
 
@@ -154,6 +156,7 @@ class OptionsForm(QDialog):
             alert_process.join()
         except Exception as e:
             print(f"Error starting regionDetectYolov8.py: {e}")
+
 
 class LoginRegisterForm(QWidget):
     def __init__(self):
@@ -242,14 +245,16 @@ class LoginRegisterForm(QWidget):
             return
 
         if self.username_exists(username):
-            QMessageBox.warning(self, "Username Exists", "The entered username already exists. Please choose a different one.")
+            QMessageBox.warning(self, "Username Exists",
+                                "The entered username already exists. Please choose a different one.")
             self.username_input.clear()
             return
 
         verification_code = self.generate_verification_code()
 
         if self.send_verification_email(username, verification_code):
-            QMessageBox.information(self, "Verification Email Sent", "A verification email has been sent to your Gmail address.")
+            QMessageBox.information(self, "Verification Email Sent",
+                                    "A verification email has been sent to your Gmail address.")
 
             verification_form = RegistrationForm(username, password, verification_code)
             if verification_form.exec_() == QDialog.Accepted:
@@ -312,7 +317,8 @@ class LoginRegisterForm(QWidget):
                     if verification_code:
                         return True
                     else:
-                        QMessageBox.warning(self, "Account Not Verified", "Please verify your account before logging in.")
+                        QMessageBox.warning(self, "Account Not Verified",
+                                            "Please verify your account before logging in.")
                 else:
                     QMessageBox.warning(self, "Login Failed", "Invalid password.")
             else:
@@ -324,6 +330,7 @@ class LoginRegisterForm(QWidget):
             print(f"Error: {e}")
 
         return False
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
